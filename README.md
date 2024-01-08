@@ -6,4 +6,12 @@ Currently, only a script to find new rollups through RollupInitialized events:
 yarn findRollups
 ```
 
-To search also inactive rollups, add `showInactive`.
+## Available options
+- showInactive (true/false, default false): Also shows inactive rollups
+- fromBlockEth, fromBlockArbOne, fromBlockArbNova (default 0): Specifies from which block to search for new rollups
+
+Example:
+
+```shell
+yarn findRollups --showInactive=true --fromBlockEth=18913723
+```
