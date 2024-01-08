@@ -1,11 +1,19 @@
 import { createPublicClient, decodeEventLog, http, keccak256, toHex } from 'viem';
-import { getBlockToSearchEventsFrom, getChainInfoFromChainId } from '../src/utils';
-import 'dotenv/config';
-import { AbiEventItem } from '../src/types';
 import { SequencerInbox__factory } from '@arbitrum/sdk/dist/lib/abi/factories/SequencerInbox__factory';
+import { getBlockToSearchEventsFrom, getChainInfoFromChainId } from '../src/utils';
+import { AbiEventItem } from '../src/types';
+import yargs from 'yargs/yargs';
+import 'dotenv/config';
 
 // Supported networks
 const supportedChainIds = [1, 42161, 42170];
+
+type FindRollupOptions = {
+  showInactive: boolean;
+  fromBlockEth: number;
+  fromBlockArbOne: number;
+  fromBlockArbNova: number;
+};
 
 type RollupInitializedEventArgs = {
   machineHash: `0x${string}`;
@@ -15,6 +23,7 @@ type RollupInitializedEventArgs = {
 type RollupInformation = {
   chainId: bigint;
   transactionHash: `0x${string}`;
+  createdAtBlock: bigint;
   rollupAddress?: `0x${string}`;
   sequencerInboxAddress?: `0x${string}`;
   isActive?: boolean;
@@ -56,7 +65,7 @@ const SequencerInboxUpdatedEventAbi = {
 };
 const SequencerInboxUpdatedEventTopic = keccak256(toHex('SequencerInboxUpdated(address)'));
 
-const main = async (showInactive: boolean) => {
+const main = async (options: FindRollupOptions) => {
   for (const chainId of supportedChainIds) {
     const parentChainInformation = getChainInfoFromChainId(chainId);
     const useCustomRPC = (chainId == 1 && process.env.ETH_RPC) as boolean;
@@ -66,10 +75,29 @@ const main = async (showInactive: boolean) => {
       transport: clientTransport,
     });
 
+    let fromBlock = 0n;
+    switch (chainId) {
+      case 1:
+        if (options.fromBlockEth > 0) {
+          fromBlock = BigInt(options.fromBlockEth);
+        }
+        break;
+      case 42161:
+        if (options.fromBlockArbOne > 0) {
+          fromBlock = BigInt(options.fromBlockArbOne);
+        }
+        break;
+      case 42170:
+        if (options.fromBlockArbNova > 0) {
+          fromBlock = BigInt(options.fromBlockArbNova);
+        }
+        break;
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const rollupInitializedEvents = await parentChainPublicClient.getLogs({
       event: rollupInitializedEventAbi as AbiEventItem,
-      fromBlock: 'earliest',
+      fromBlock: fromBlock > 0 ? fromBlock : 'earliest',
       toBlock: 'latest',
     });
 
@@ -79,6 +107,7 @@ const main = async (showInactive: boolean) => {
         const rollupInformation: RollupInformation = {
           chainId: (rollupInitializedEvent.args as RollupInitializedEventArgs).chainId,
           transactionHash: rollupInitializedEvent.transactionHash,
+          createdAtBlock: rollupInitializedEvent.blockNumber,
         };
 
         //
@@ -105,6 +134,13 @@ const main = async (showInactive: boolean) => {
             decodedLog.args as SequencerInboxUpdatedEventArgs
           ).newSequencerInbox;
 
+          // Get the rollup address
+          rollupInformation.rollupAddress = (await parentChainPublicClient.readContract({
+            address: rollupInformation.sequencerInboxAddress,
+            abi: SequencerInbox__factory.abi,
+            functionName: 'rollup',
+          })) as `0x${string}`;
+
           // Get latest events of the contract
           const currentBlock = await parentChainPublicClient.getBlockNumber();
           const fromBlock = getBlockToSearchEventsFrom(chainId, currentBlock, useCustomRPC);
@@ -116,13 +152,6 @@ const main = async (showInactive: boolean) => {
             toBlock: currentBlock,
           });
           rollupInformation.isActive = sequencerBatchDeliveredEventLogs.length > 0;
-
-          // Get the rollup address
-          rollupInformation.rollupAddress = (await parentChainPublicClient.readContract({
-            address: rollupInformation.sequencerInboxAddress,
-            abi: SequencerInbox__factory.abi,
-            functionName: 'rollup',
-          })) as `0x${string}`;
         }
 
         return rollupInformation;
@@ -130,7 +159,7 @@ const main = async (showInactive: boolean) => {
     );
 
     // Filter inactives if needed
-    const rollupsToShow = showInactive
+    const rollupsToShow = options.showInactive
       ? rollupsInformation
       : rollupsInformation.filter((rollupInformation) => rollupInformation.isActive);
 
@@ -138,22 +167,31 @@ const main = async (showInactive: boolean) => {
     console.log(`* Rollups in chainId = ${chainId}`);
     console.log('************************');
     if (rollupsToShow.length > 0) {
-      rollupsToShow.forEach((rollupInformation) => {
-        console.log('----------------------');
-        console.log(rollupInformation);
-        console.log('----------------------');
-        console.log('');
-      });
+      rollupsToShow
+        .sort((a, b) => Number(a.createdAtBlock - b.createdAtBlock))
+        .forEach((rollupInformation) => {
+          console.log('----------------------');
+          console.log(rollupInformation);
+          console.log('----------------------');
+          console.log('');
+        });
     }
     console.log(`Found ${rollupsToShow.length} rollups.`);
   }
 };
 
-// Getting argument for showing active rollups
-const showInactive = process.argv.length >= 3 && process.argv[2] == 'showInactive' ? true : false;
+// Getting arguments
+const options = yargs(process.argv.slice(2))
+  .options({
+    showInactive: { type: 'boolean', default: false },
+    fromBlockEth: { type: 'number', default: 0 },
+    fromBlockArbOne: { type: 'number', default: 0 },
+    fromBlockArbNova: { type: 'number', default: 0 },
+  })
+  .parseSync();
 
 // Calling main
-main(showInactive)
+main(options)
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
