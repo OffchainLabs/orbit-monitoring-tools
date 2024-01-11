@@ -95,10 +95,15 @@ const main = async (options: FindRollupOptions) => {
     }
 
     // eslint-disable-next-line no-await-in-loop
+    const currentParentChainBlock = await parentChainPublicClient.getBlockNumber();
+    const blockFrom = fromBlock > 0 ? fromBlock : 'earliest';
+    const blockTo = currentParentChainBlock;
+
+    // eslint-disable-next-line no-await-in-loop
     const rollupInitializedEvents = await parentChainPublicClient.getLogs({
       event: rollupInitializedEventAbi as AbiEventItem,
-      fromBlock: fromBlock > 0 ? fromBlock : 'earliest',
-      toBlock: 'latest',
+      fromBlock: blockFrom,
+      toBlock: blockTo,
     });
 
     // eslint-disable-next-line no-await-in-loop
@@ -165,6 +170,7 @@ const main = async (options: FindRollupOptions) => {
 
     console.log('************************');
     console.log(`* Rollups in chainId = ${chainId}`);
+    console.log(`* (Between ${blockFrom} to ${blockTo})`);
     console.log('************************');
     if (rollupsToShow.length > 0) {
       rollupsToShow

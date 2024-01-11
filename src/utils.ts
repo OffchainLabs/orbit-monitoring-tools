@@ -1,3 +1,4 @@
+import { defineChain } from 'viem';
 import {
   mainnet,
   sepolia,
@@ -6,6 +7,18 @@ import {
   arbitrumGoerli,
   arbitrumSepolia,
 } from 'viem/chains';
+
+// Types
+export type ChainInformation = {
+  id: number;
+  rpc: string;
+  name: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+};
 
 // Supported Viem chains
 const supportedChains = {
@@ -35,6 +48,23 @@ export const getChainInfoFromChainId = (chainId: number) => {
   }
 
   return undefined;
+};
+
+export const defineChainInformation = (chainInformation: ChainInformation) => {
+  return defineChain({
+    id: chainInformation.id,
+    name: chainInformation.name,
+    network: 'orbit',
+    nativeCurrency: chainInformation.nativeCurrency,
+    rpcUrls: {
+      default: {
+        http: [chainInformation.rpc],
+      },
+      public: {
+        http: [chainInformation.rpc],
+      },
+    },
+  });
 };
 
 export const getBlockToSearchEventsFrom = (
