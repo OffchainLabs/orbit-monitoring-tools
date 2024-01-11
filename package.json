@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "findRollups": "ts-node scripts/find-rollups.ts"
+    "findRollups": "ts-node scripts/find-rollups.ts",
+    "findPendingRetryables": "ts-node scripts/find-pending-retryables.ts"
   },
   "keywords": [],
   "author": "",
