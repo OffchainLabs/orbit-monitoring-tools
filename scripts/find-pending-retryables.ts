@@ -19,6 +19,7 @@ import 'dotenv/config';
 type FindPendingRetryablesOptions = {
   fromBlock: number;
   toBlock: number;
+  showOnlyPending: boolean;
 };
 
 type PendingRetryableInformation = {
@@ -304,11 +305,6 @@ const main = async (options: FindPendingRetryablesOptions) => {
     id: orbitChainId,
     rpc: process.env.ORBIT_CHAIN_RPC,
     name: process.env.ORBIT_CHAIN_NAME,
-    nativeCurrency: {
-      name: process.env.ORBIT_CHAIN_CURRENCY_NAME,
-      symbol: process.env.ORBIT_CHAIN_CURRENCY_SYMBOL,
-      decimals: Number(process.env.ORBIT_CHAIN_CURRENCY_DECIMALS),
-    },
   });
   const orbitPublicClient = createPublicClient({
     chain: orbitChainInformation,
@@ -489,17 +485,23 @@ const main = async (options: FindPendingRetryablesOptions) => {
     console.log('No pending retryables found');
   }
   console.log('');
-  console.log(`Retryables successfully redeemed (${redeemedRetryables.length})`);
-  if (redeemedRetryables.length > 0) {
-    console.log('Parent chain submission transaction hash - Orbit chain creation transaction hash');
-    console.log('--------------------------------------------------------------------------------');
-    redeemedRetryables
-      .sort((a, b) => Number(a.submittedAtBlock - b.submittedAtBlock))
-      .forEach((redeemedRetryable) => {
-        console.log(
-          `${redeemedRetryable.parentChainTransactionHash} -- ${redeemedRetryable.orbitChainCreateTransactionHash}`,
-        );
-      });
+  if (!options.showOnlyPending) {
+    console.log(`Retryables successfully redeemed (${redeemedRetryables.length})`);
+    if (redeemedRetryables.length > 0) {
+      console.log(
+        'Parent chain submission transaction hash - Orbit chain creation transaction hash',
+      );
+      console.log(
+        '--------------------------------------------------------------------------------',
+      );
+      redeemedRetryables
+        .sort((a, b) => Number(a.submittedAtBlock - b.submittedAtBlock))
+        .forEach((redeemedRetryable) => {
+          console.log(
+            `${redeemedRetryable.parentChainTransactionHash} -- ${redeemedRetryable.orbitChainCreateTransactionHash}`,
+          );
+        });
+    }
   }
 };
 
@@ -508,6 +510,7 @@ const options = yargs(process.argv.slice(2))
   .options({
     fromBlock: { type: 'number', default: Number(process.env.ORBIT_CHAIN_DEPLOYMENT_BLOCK) || 0 },
     toBlock: { type: 'number', default: 0 },
+    showOnlyPending: { type: 'boolean', default: false },
   })
   .parseSync();
 

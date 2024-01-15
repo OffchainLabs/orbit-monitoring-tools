@@ -34,6 +34,7 @@ yarn findPendingRetryables
 
 Available options:
 - fromBlock, toBlock: Range of blocks in the parent chain to search SubmitRetryable events
+- showOnlyPending: If true, it will only show the pending retraybles and not the successfully redeemed one (default false)
 
 
 ```shell

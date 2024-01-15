@@ -13,7 +13,7 @@ export type ChainInformation = {
   id: number;
   rpc: string;
   name: string;
-  nativeCurrency: {
+  nativeCurrency?: {
     name: string;
     symbol: string;
     decimals: number;
@@ -55,7 +55,11 @@ export const defineChainInformation = (chainInformation: ChainInformation) => {
     id: chainInformation.id,
     name: chainInformation.name,
     network: 'orbit',
-    nativeCurrency: chainInformation.nativeCurrency,
+    nativeCurrency: chainInformation.nativeCurrency || {
+      name: 'ETH',
+      symbol: 'ETH',
+      decimals: 18,
+    },
     rpcUrls: {
       default: {
         http: [chainInformation.rpc],
